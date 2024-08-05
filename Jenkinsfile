@@ -6,13 +6,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                // Clone the repository from GitHub
-                git branch: 'main', credentialsId: 'sainadh30-GitHub', url: 'https://github.com/sainadh30/dockerpipeline.git'
-            }
-        }
-
         stage('Docker Build') {
             steps {
                 // Build the Docker image
