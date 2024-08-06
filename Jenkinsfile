@@ -15,6 +15,29 @@ pipeline {
             }
         }
 
+        stage('Prepare Remote Host') {
+            steps {
+                script {
+                    sshagent (credentials: [env.SSH_CREDENTIALS_ID]) {
+                        // Ensure the repository is cloned on the remote host
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${env.HOST} "
+                                if [ ! -d /home/ubuntu/dockerpipeline ]; then
+                                    mkdir -p /home/ubuntu/dockerpipeline &&
+                                    cd /home/ubuntu/dockerpipeline &&
+                                    git clone https://github.com/sainadh30/dockerpipeline.git . &&
+                                    git checkout main
+                                else
+                                    cd /home/ubuntu/dockerpipeline &&
+                                    git pull origin main
+                                fi
+                            "
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Clean Up Existing Docker Resources') {
             steps {
                 script {
@@ -22,7 +45,6 @@ pipeline {
                         // Remove any existing Docker container and image on the remote host
                         sh """
                             ssh -o StrictHostKeyChecking=no ${env.HOST} "
-                                set -e &&
                                 docker rm -f ${env.DOCKER_IMAGE_NAME} || true &&
                                 docker rmi ${env.DOCKER_IMAGE_NAME} || true
                             "
@@ -39,7 +61,7 @@ pipeline {
                         // Build the Docker image on the remote host without using cache
                         sh """
                             ssh -o StrictHostKeyChecking=no ${env.HOST} "
-                                set -e &&
+                                cd /home/ubuntu/dockerpipeline &&
                                 docker build --no-cache -t ${env.DOCKER_IMAGE_NAME} .
                             "
                         """
@@ -55,7 +77,6 @@ pipeline {
                         // Run the Docker container on the remote host
                         sh """
                             ssh -o StrictHostKeyChecking=no ${env.HOST} "
-                                set -e &&
                                 docker run -d -p 80:80 --name ${env.DOCKER_IMAGE_NAME} ${env.DOCKER_IMAGE_NAME}
                             "
                         """
