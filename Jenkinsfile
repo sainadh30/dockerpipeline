@@ -3,6 +3,9 @@ pipeline {
 
     environment {
         DOCKER_IMAGE_NAME = 'my-ubuntu-webserver'
+        SSH_CREDENTIALS_ID = 'DockerHost'
+        HOST = 'ubuntu@54.90.117.217'
+        REPO_PATH = '/home/ubuntu'
     }
 
     stages {
@@ -13,43 +16,48 @@ pipeline {
             }
         }
 
-        stage('Clean Up Existing Docker Resources') {
+        stage('Perform Remote Operations') {
             steps {
                 script {
-                    // Remove any existing Docker container with the same name
-                    sh "docker rm -f ${env.DOCKER_IMAGE_NAME} || true"
-                    
-                    // Remove any existing Docker image with the same name
-                    sh "docker rmi ${env.DOCKER_IMAGE_NAME} || true"
+                    sshagent (credentials: [env.SSH_CREDENTIALS_ID]) {
+                        // Clean up existing Docker resources
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${env.HOST} "
+                                docker rm -f ${env.DOCKER_IMAGE_NAME} || true && 
+                                docker rmi ${env.DOCKER_IMAGE_NAME} || true
+                            "
+                        """
+
+                        // Build the Docker image
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${env.HOST} "
+                                cd ${env.REPO_PATH} && 
+                                docker build -t ${env.DOCKER_IMAGE_NAME} .
+                            "
+                        """
+
+                        // Run the Docker container
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${env.HOST} "
+                                docker run -d -p 80:80 --name ${env.DOCKER_IMAGE_NAME} ${env.DOCKER_IMAGE_NAME}
+                            "
+                        """
+
+                        // List all Docker images
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${env.HOST} "
+                                docker images
+                            "
+                        """
+
+                        // List all running Docker containers
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${env.HOST} "
+                                docker ps
+                            "
+                        """
+                    }
                 }
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                // Build the Docker image
-                sh "docker build -t ${env.DOCKER_IMAGE_NAME} ."
-            }
-        }
-
-        stage('Run Docker Container') {
-            steps {
-                // Run the Docker container
-                sh "docker run -d -p 80:80 --name ${env.DOCKER_IMAGE_NAME} ${env.DOCKER_IMAGE_NAME}"
-            }
-        }
-
-        stage('List Docker Images') {
-            steps {
-                // List all Docker images
-                sh "docker images"
-            }
-        }
-
-        stage('List Running Containers') {
-            steps {
-                // List all running Docker containers
-                sh "docker ps"
             }
         }
     }
