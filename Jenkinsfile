@@ -15,26 +15,6 @@ pipeline {
             }
         }
 
-        stage('Prepare Remote Host') {
-            steps {
-                script {
-                    sshagent (credentials: [env.SSH_CREDENTIALS_ID]) {
-                        // Clone the repository on the remote host
-                        sh """
-                            ssh -o StrictHostKeyChecking=no ${env.HOST} "
-                                if [ ! -d /home/ubuntu/dockerpipeline ]; then
-                                    mkdir -p /home/ubuntu/dockerpipeline &&
-                                    cd /home/ubuntu/dockerpipeline &&
-                                    git clone https://github.com/sainadh30/dockerpipeline.git . &&
-                                    git checkout main
-                                fi
-                            "
-                        """
-                    }
-                }
-            }
-        }
-
         stage('Clean Up Docker Resources') {
             steps {
                 script {
