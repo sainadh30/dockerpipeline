@@ -35,15 +35,15 @@ pipeline {
             }
         }
 
-        stage('Clean Up Existing Docker Resources') {
+        stage('Clean Up Docker Resources') {
             steps {
                 script {
                     sshagent (credentials: [env.SSH_CREDENTIALS_ID]) {
-                        // Clean up existing Docker containers and images
+                        // Remove any existing Docker container with the same name and any existing Docker image with the same name
                         sh """
                             ssh -o StrictHostKeyChecking=no ${env.HOST} "
-                                docker ps -a -q -f name=${env.DOCKER_IMAGE_NAME} | xargs -r docker rm &&
-                                docker images -q ${env.DOCKER_IMAGE_NAME} | xargs -r docker rmi
+                                docker rm -f ${env.DOCKER_IMAGE_NAME} || true
+                                docker rmi ${env.DOCKER_IMAGE_NAME} || true
                             "
                         """
                     }
