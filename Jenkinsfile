@@ -5,14 +5,33 @@ pipeline {
         DOCKER_IMAGE_NAME = 'my-ubuntu-webserver'
         SSH_CREDENTIALS_ID = 'DockerHost'
         HOST = 'ubuntu@54.90.117.217'
-        REPO_PATH = '/home/ubuntu'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Clone the repository from GitHub
+                // Clone the repository from GitHub on the Jenkins server
                 git branch: 'main', credentialsId: 'sainadh30-GitHub', url: 'https://github.com/sainadh30/dockerpipeline.git'
+            }
+        }
+
+        stage('Prepare Remote Host') {
+            steps {
+                script {
+                    sshagent (credentials: [env.SSH_CREDENTIALS_ID]) {
+                        // Clone the repository on the remote host
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${env.HOST} "
+                                if [ ! -d /home/ubuntu/dockerpipeline ]; then
+                                    mkdir -p /home/ubuntu/dockerpipeline &&
+                                    cd /home/ubuntu/dockerpipeline &&
+                                    git clone https://github.com/sainadh30/dockerpipeline.git . &&
+                                    git checkout main
+                                fi
+                            "
+                        """
+                    }
+                }
             }
         }
 
@@ -23,6 +42,7 @@ pipeline {
                         // Clean up existing Docker resources
                         sh """
                             ssh -o StrictHostKeyChecking=no ${env.HOST} "
+                                cd /home/ubuntu/dockerpipeline &&
                                 docker rm -f ${env.DOCKER_IMAGE_NAME} || true && 
                                 docker rmi ${env.DOCKER_IMAGE_NAME} || true
                             "
@@ -31,7 +51,7 @@ pipeline {
                         // Build the Docker image
                         sh """
                             ssh -o StrictHostKeyChecking=no ${env.HOST} "
-                                cd ${env.REPO_PATH} && 
+                                cd /home/ubuntu/dockerpipeline && 
                                 docker build -t ${env.DOCKER_IMAGE_NAME} .
                             "
                         """
