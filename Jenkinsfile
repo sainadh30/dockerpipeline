@@ -35,19 +35,27 @@ pipeline {
             }
         }
 
+        stage('Clean Up Existing Docker Resources') {
+            steps {
+                script {
+                    sshagent (credentials: [env.SSH_CREDENTIALS_ID]) {
+                        // Clean up existing Docker containers and images
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${env.HOST} "
+                                docker ps -q -f name=${env.DOCKER_IMAGE_NAME} | xargs -r docker stop &&
+                                docker ps -a -q -f name=${env.DOCKER_IMAGE_NAME} | xargs -r docker rm &&
+                                docker images -q ${env.DOCKER_IMAGE_NAME} | xargs -r docker rmi
+                            "
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Perform Remote Operations') {
             steps {
                 script {
                     sshagent (credentials: [env.SSH_CREDENTIALS_ID]) {
-                        // Clean up existing Docker resources
-                        sh """
-                            ssh -o StrictHostKeyChecking=no ${env.HOST} "
-                                cd /home/ubuntu/dockerpipeline &&
-                                docker rm -f ${env.DOCKER_IMAGE_NAME} || true && 
-                                docker rmi ${env.DOCKER_IMAGE_NAME} || true
-                            "
-                        """
-
                         // Build the Docker image
                         sh """
                             ssh -o StrictHostKeyChecking=no ${env.HOST} "
